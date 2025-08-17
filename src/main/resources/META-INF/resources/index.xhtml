@@ -14,6 +14,8 @@
                 <p:growl id="mensajes" showDetails="true"/>
                 <!-- Menubar -->
                 <div class="card">
+                    <p:panel header="Sistema Adm (GYM)"
+                             style="margin-bottom:10px; text-align:center; font-size:24px; font-weight:bold;">
                     <p:menubar>
                         <p:menuitem value="Inicio" icon="pi pi-fw pi-user"
                                     update=":forma-clientes:clientes-tabla"
@@ -23,6 +25,14 @@
                                     update=":forma-modal:cliente-ventana"
                                     oncomplete="PF('ventanaModalCliente').show()"/>
                     </p:menubar>
+                        <h:panelGrid columns="3" style="margin-bottom:10px">
+                            <h:outputLabel value="Buscar cliente:" for="buscarTexto" />
+                            <p:inputText id="buscarTexto" value="#{indexControlador.criterioBusqueda}" placeholder="Nombre o DNI" />
+                            <p:commandButton value="Buscar" icon="pi pi-search"
+                                             actionListener="#{indexControlador.buscarClientes}"
+                                             update=":forma-clientes:clientes-tabla :forma-clientes:mensajes" />
+                        </h:panelGrid>
+                    </p:panel>
                 </div>
                 <!-- DataTable   -->
                 <div class="card">
@@ -40,7 +50,7 @@
                             </div>
                         </f:facet>
 
-                        <p:column headerText="Id">
+                        <p:column headerText="DNI">
                             <h:outputText value="#{cliente.dni}"/>
                         </p:column>
 
@@ -50,6 +60,10 @@
 
                         <p:column headerText="Apellido">
                             <h:outputText value="#{cliente.apellido}"/>
+                        </p:column>
+
+                        <p:column headerText="Telefono">
+                            <h:outputText value="#{cliente.telefono}"/>
                         </p:column>
 
                         <p:column headerText="Membresía">

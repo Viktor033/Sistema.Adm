@@ -23,6 +23,7 @@ public class IndexControlador {
     IClienteServicio clienteServicio;
     private List<Cliente> clientes;
     private Cliente clienteSeleccionado;
+    private String criterioBusqueda;
     private static final Logger logger =
             LoggerFactory.getLogger(IndexControlador.class);
 
@@ -76,4 +77,22 @@ public class IndexControlador {
         PrimeFaces.current().ajax().update("forma-clientes:mensajes",
                 "forma-clientes:clientes-tabla");
     }
+
+    public void buscarClientes() {
+        if (criterioBusqueda == null || criterioBusqueda.trim().isEmpty()) {
+            cargarDatos(); // Muestra todos si no hay criterio
+            return;
+        }
+
+        String criterio = criterioBusqueda.trim().toLowerCase();
+        this.clientes = clienteServicio.listarClientes().stream()
+                .filter(c -> c.getNombre().toLowerCase().contains(criterio)
+                        || String.valueOf(c.getDni()).contains(criterio))
+                .toList();
+
+        FacesContext.getCurrentInstance().addMessage(null,
+                new FacesMessage("Se encontraron " + clientes.size() + " coincidencias"));
+        PrimeFaces.current().ajax().update("forma-clientes:mensajes", "forma-clientes:clientes-tabla");
+    }
+
 }

@@ -4,32 +4,43 @@ import gm.zona_fit.modelo.Cliente;
 import gm.zona_fit.servicio.ClienteServicio;
 import gm.zona_fit.servicio.IClienteServicio;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.List;
 
 public class ZonaFitForma extends JFrame {
     private JPanel panelPrincipal;
     private JTable clientesTabla;
     private JTextField nombreTexto;
     private JTextField apellidoTexto;
-    private JTextField telefonoTexto; // ✅ Campo agregado
+    private JTextField telefonoTexto;
     private JTextField membresiaTexto;
+    private JTextField dniTexto;
     private JButton guardarButton;
     private JButton eliminarButton;
     private JButton limpiarButton;
-    IClienteServicio clienteServicio;
+    private JTextField buscarTexto;
+    private JButton buscarButton;
+
     private DefaultTableModel tablaModeloClientes;
     private Integer idCliente;
+
+    @Autowired
+    IClienteServicio clienteServicio;
 
     @Autowired
     public ZonaFitForma(ClienteServicio clienteServicio) {
         this.clienteServicio = clienteServicio;
         iniciarForma();
+
         guardarButton.addActionListener(e -> guardarCliente());
+        eliminarButton.addActionListener(e -> eliminarCliente());
+        limpiarButton.addActionListener(e -> limpiarFormulario());
+        buscarButton.addActionListener(e -> buscarClientes());
+
         clientesTabla.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -37,8 +48,6 @@ public class ZonaFitForma extends JFrame {
                 cargarClienteSeleccionado();
             }
         });
-        eliminarButton.addActionListener(e -> eliminarCliente());
-        limpiarButton.addActionListener(e -> limpiarFormulario());
     }
 
     private void iniciarForma() {
@@ -46,6 +55,7 @@ public class ZonaFitForma extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(900, 700);
         setLocationRelativeTo(null);
+        createUIComponents();
     }
 
     private void createUIComponents() {
@@ -55,7 +65,7 @@ public class ZonaFitForma extends JFrame {
                 return false;
             }
         };
-        String[] cabeceros = {"dni", "Nombre", "Apellido", "Teléfono", "Membresía"};
+        String[] cabeceros = {"DNI", "Nombre", "Apellido", "Teléfono", "Membresía"};
         this.tablaModeloClientes.setColumnIdentifiers(cabeceros);
         this.clientesTabla = new JTable(tablaModeloClientes);
         this.clientesTabla.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -63,90 +73,144 @@ public class ZonaFitForma extends JFrame {
     }
 
     private void listarClientes() {
-        this.tablaModeloClientes.setRowCount(0);
-        var clientes = this.clienteServicio.listarClientes();
-        clientes.forEach(cliente -> {
-            Object[] renglonCliente = {
+        tablaModeloClientes.setRowCount(0); // Limpia la tabla
+        List<Cliente> clientes = clienteServicio.listarClientes();
+        for (Cliente cliente : clientes) {
+            Object[] fila = {
                     cliente.getDni(),
                     cliente.getNombre(),
                     cliente.getApellido(),
                     cliente.getTelefono(),
                     cliente.getMembresia()
             };
-            this.tablaModeloClientes.addRow(renglonCliente);
-        });
+            tablaModeloClientes.addRow(fila);
+        }
+        // 🔹 Fuerza a la tabla a refrescarse inmediatamente
+        tablaModeloClientes.fireTableDataChanged();
+    }
+
+
+    private void buscarClientes() {
+        String textoBusqueda = buscarTexto.getText().trim().toLowerCase();
+        tablaModeloClientes.setRowCount(0);
+
+        List<Cliente> clientes = clienteServicio.listarClientes();
+        clientes.stream()
+                .filter(c -> c.getNombre().toLowerCase().contains(textoBusqueda)
+                        || c.getApellido().toLowerCase().contains(textoBusqueda))
+                .forEach(c -> {
+                    Object[] fila = {
+                            c.getDni(),
+                            c.getNombre(),
+                            c.getApellido(),
+                            c.getTelefono(),
+                            c.getMembresia()
+                    };
+                    tablaModeloClientes.addRow(fila);
+                });
+
+        if (tablaModeloClientes.getRowCount() == 0) {
+            mostrarMensaje("No se encontraron clientes con ese nombre o apellido");
+        }
     }
 
     private void guardarCliente() {
-        if (nombreTexto.getText().equals("")) {
+        // Validaciones básicas
+        if (dniTexto.getText().trim().isEmpty()) {
+            mostrarMensaje("Proporciona un DNI");
+            dniTexto.requestFocusInWindow();
+            return;
+        }
+
+        if (nombreTexto.getText().trim().isEmpty()) {
             mostrarMensaje("Proporciona un nombre");
             nombreTexto.requestFocusInWindow();
             return;
         }
-        if (membresiaTexto.getText().equals("")) {
+
+        if (membresiaTexto.getText().trim().isEmpty()) {
             mostrarMensaje("Proporciona una membresía");
             membresiaTexto.requestFocusInWindow();
             return;
         }
 
-        var nombre = nombreTexto.getText();
-        var apellido = apellidoTexto.getText();
-        var telefono = Integer.parseInt(telefonoTexto.getText()); // ✅ Conversión correcta
-        var membresia = Integer.parseInt(membresiaTexto.getText()); // ✅ Conversión correcta
-        Long id = (this.idCliente != null) ? this.idCliente.longValue() : null;
+        try {
+            // Parseo de campos
+            int dni = Integer.parseInt(dniTexto.getText().trim());
+            String nombre = nombreTexto.getText().trim();
+            String apellido = apellidoTexto.getText().trim();
 
-        var cliente = new Cliente(id, nombre, apellido, telefono, membresia);
-        this.clienteServicio.guardarCliente(cliente);
+            Integer telefono = null;
+            if (!telefonoTexto.getText().trim().isEmpty()) {
+                telefono = Integer.valueOf(telefonoTexto.getText().trim());
+            }
 
-        if (this.idCliente == null)
-            mostrarMensaje("Se agregó el nuevo Cliente");
-        else
-            mostrarMensaje("Se actualizó el Cliente");
+            Integer membresia = Integer.valueOf(membresiaTexto.getText().trim());
 
-        limpiarFormulario();
-        listarClientes();
+            // Verificación de cliente existente
+            Cliente clienteExistente = clienteServicio.buscarClientePorId(dni);
+            if (clienteExistente != null) {
+                mostrarMensaje("Ya existe un cliente con ese DNI");
+                return;
+            }
+
+            // Crear y guardar cliente
+            Cliente nuevoCliente = new Cliente(dni, nombre, apellido, telefono, membresia);
+            clienteServicio.guardarCliente(nuevoCliente);
+
+            // 🔹 Actualizar tabla automáticamente
+            listarClientes();
+
+            // 🔹 Limpiar formulario al final
+            limpiarFormulario();
+
+            mostrarMensaje("Cliente guardado correctamente");
+
+        } catch (NumberFormatException e) {
+            mostrarMensaje("Verifica que DNI, teléfono y membresía sean números válidos");
+        } catch (Exception e) {
+            mostrarMensaje("Ocurrió un error al guardar el cliente: " + e.getMessage());
+        }
     }
 
 
     private void cargarClienteSeleccionado() {
-        var renglon = clientesTabla.getSelectedRow();
+        int renglon = clientesTabla.getSelectedRow();
         if (renglon != -1) {
-            var id = clientesTabla.getModel().getValueAt(renglon, 0).toString();
-            this.idCliente = Integer.parseInt(id);
-            var nombre = clientesTabla.getModel().getValueAt(renglon, 1).toString();
-            this.nombreTexto.setText(nombre);
-            var apellido = clientesTabla.getModel().getValueAt(renglon, 2).toString();
-            this.apellidoTexto.setText(apellido);
-            var telefono = clientesTabla.getModel().getValueAt(renglon, 3).toString();
-            this.telefonoTexto.setText(telefono);
-            var membresia = clientesTabla.getModel().getValueAt(renglon, 4).toString();
-            this.membresiaTexto.setText(membresia);
+            idCliente = Integer.parseInt(clientesTabla.getModel().getValueAt(renglon, 0).toString());
+            nombreTexto.setText(clientesTabla.getModel().getValueAt(renglon, 1).toString());
+            apellidoTexto.setText(clientesTabla.getModel().getValueAt(renglon, 2).toString());
+            telefonoTexto.setText(clientesTabla.getModel().getValueAt(renglon, 3).toString());
+            membresiaTexto.setText(clientesTabla.getModel().getValueAt(renglon, 4).toString());
         }
     }
 
     private void eliminarCliente() {
-        var renglon = clientesTabla.getSelectedRow();
+        int renglon = clientesTabla.getSelectedRow();
         if (renglon != -1) {
-            var idClienteStr = clientesTabla.getModel().getValueAt(renglon, 0).toString();
-            this.idCliente = Integer.parseInt(idClienteStr);
-            var cliente = new Cliente();
-            cliente.setDni(this.idCliente.longValue());
-            clienteServicio.eliminarCliente(cliente);
-            mostrarMensaje("Cliente con id " + this.idCliente + " eliminado");
-            limpiarFormulario();
-            listarClientes();
+            int dni = Integer.parseInt(clientesTabla.getModel().getValueAt(renglon, 0).toString());
+            Cliente cliente = clienteServicio.buscarClientePorId(dni);
+            if (cliente != null) {
+                clienteServicio.eliminarCliente(cliente);
+                mostrarMensaje("Cliente con DNI " + dni + " eliminado");
+                limpiarFormulario();
+                listarClientes();
+            } else {
+                mostrarMensaje("No se encontró el cliente para eliminar");
+            }
         } else {
             mostrarMensaje("Debe seleccionar un Cliente a eliminar");
         }
     }
 
     private void limpiarFormulario() {
+        dniTexto.setText("");
         nombreTexto.setText("");
         apellidoTexto.setText("");
-        telefonoTexto.setText(""); // ✅ Limpiar campo nuevo
+        telefonoTexto.setText("");
         membresiaTexto.setText("");
-        this.idCliente = null;
-        this.clientesTabla.getSelectionModel().clearSelection();
+        idCliente = null;
+        clientesTabla.getSelectionModel().clearSelection();
     }
 
     private void mostrarMensaje(String mensaje) {

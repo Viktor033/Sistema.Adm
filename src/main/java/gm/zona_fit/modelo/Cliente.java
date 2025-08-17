@@ -14,7 +14,7 @@ import lombok.*;
 @EqualsAndHashCode
 public class Cliente {
     @Id
-    private Long dni;
+    private Integer dni;
     private String nombre;
     private String apellido;
     private Integer telefono;
