@@ -96,6 +96,8 @@
                     </p:dataTable>
                 </div>
             </h:form>
+
+            <!-- Formulario agregar cliente -->
             <h:form id="forma-modal">
                 <p:dialog header="Detalles Cliente" showEffect="fade"
                           modal="true" widgetVar="ventanaModalCliente"
@@ -134,7 +136,9 @@
                     <f:facet name="footer">
                         <p:commandButton value="Guardar" icon="pi pi-check"
                                          process="cliente-ventana @this"
-                                         actionListener="#{indexControlador.guardarCliente}"/>
+                                         actionListener="#{indexControlador.guardarCliente}"
+                                         update=":forma-clientes:clientes-tabla :forma-clientes:mensajes"
+                                         oncomplete="PF('ventanaModalCliente').hide()"/>
                         <p:commandButton value="Cancelar" icon="pi pi-times"
                                          onclick="PF('ventanaModalCliente').hide()"
                                          class="ui-button-secondary" type="button"/>

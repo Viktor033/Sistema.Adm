@@ -6,93 +6,92 @@ import jakarta.annotation.PostConstruct;
 import jakarta.faces.application.FacesMessage;
 import jakarta.faces.context.FacesContext;
 import jakarta.faces.view.ViewScoped;
+import jakarta.inject.Named;
 import lombok.Data;
 import org.primefaces.PrimeFaces;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-import java.util.List;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-@Component
-@Data
+import java.io.Serializable;
+import java.util.List;
+
+@Named
 @ViewScoped
-public class IndexControlador {
+@Data
+public class IndexControlador implements Serializable {
 
-    @Autowired
-    IClienteServicio clienteServicio;
+    private static final Logger logger = LoggerFactory.getLogger(IndexControlador.class);
+
     private List<Cliente> clientes;
     private Cliente clienteSeleccionado;
     private String criterioBusqueda;
-    private static final Logger logger =
-            LoggerFactory.getLogger(IndexControlador.class);
+
+    private final IClienteServicio clienteServicio;
+
+    public IndexControlador(IClienteServicio clienteServicio) {
+        this.clienteServicio = clienteServicio;
+    }
 
     @PostConstruct
-    public void init(){
+    public void init() {
         cargarDatos();
     }
 
-    public void cargarDatos(){
-        this.clientes = this.clienteServicio.listarClientes();
-        this.clientes.forEach(cliente -> logger.info(cliente.toString()));
+    public void cargarDatos() {
+        this.clientes = clienteServicio.listarClientes();
+        clientes.forEach(cliente -> logger.info(cliente.toString()));
     }
 
-    public void agregarCliente(){
-        this.clienteSeleccionado = new Cliente();
+    public void agregarCliente() {
+        clienteSeleccionado = new Cliente();
     }
 
-    public void guardarCliente(){
-        logger.info("cliente a guardar: " + this.clienteSeleccionado);
-        // Agregar (insert)
-        if(this.clienteSeleccionado.getDni() == null){
-            this.clienteServicio.guardarCliente(this.clienteSeleccionado);
-            this.clientes.add(this.clienteSeleccionado);
-            FacesContext.getCurrentInstance().addMessage(null,
-                    new FacesMessage("Cliente Agregado"));
+    public void guardarCliente() {
+        logger.info("Cliente a guardar: " + clienteSeleccionado);
+
+        clienteServicio.guardarCliente(clienteSeleccionado);
+
+        if (clienteSeleccionado.getDni() == null) {
+            mostrarMensaje("Cliente agregado correctamente");
+        } else {
+            mostrarMensaje("Cliente actualizado correctamente");
         }
-        // Modificar (update)
-        else{
-            this.clienteServicio.guardarCliente(this.clienteSeleccionado);
-            FacesContext.getCurrentInstance().addMessage(null,
-                    new FacesMessage("Cliente Actualizado"));
-        }
-        // Ocultar la ventana modal
+
+        cargarDatos(); // ✅ Recarga la lista desde la base
+        clienteSeleccionado = null;
+
         PrimeFaces.current().executeScript("PF('ventanaModalCliente').hide()");
-        // Actualizar la tabla usando ajax
-        PrimeFaces.current().ajax().update("forma-clientes:mensajes",
-                "forma-clientes:clientes-tabla");
-        // Reset del objeto cliente seleccionado
-        this.clienteSeleccionado = null;
+        PrimeFaces.current().ajax().update("forma-clientes:mensajes", "forma-clientes:clientes-tabla");
     }
 
-    public void eliminarCliente(){
-        logger.info("Cliente a eliminar: " + this.clienteSeleccionado);
-        this.clienteServicio.eliminarCliente(this.clienteSeleccionado);
-        // Eliminar el registro de la lista de clientes
-        this.clientes.remove(this.clienteSeleccionado);
-        // Reset del objeto de cliente seleccionado
-        this.clienteSeleccionado = null;
-        FacesContext.getCurrentInstance().addMessage(null,
-                new FacesMessage("Cliente Eliminado"));
-        PrimeFaces.current().ajax().update("forma-clientes:mensajes",
-                "forma-clientes:clientes-tabla");
+
+    public void eliminarCliente() {
+        logger.info("Cliente a eliminar: " + clienteSeleccionado);
+        clienteServicio.eliminarCliente(clienteSeleccionado);
+        clientes.remove(clienteSeleccionado);
+        clienteSeleccionado = null;
+        mostrarMensaje("Cliente eliminado correctamente");
+        PrimeFaces.current().ajax().update("forma-clientes:mensajes", "forma-clientes:clientes-tabla");
     }
 
     public void buscarClientes() {
         if (criterioBusqueda == null || criterioBusqueda.trim().isEmpty()) {
-            cargarDatos(); // Muestra todos si no hay criterio
+            cargarDatos();
             return;
         }
 
         String criterio = criterioBusqueda.trim().toLowerCase();
-        this.clientes = clienteServicio.listarClientes().stream()
+        clientes = clienteServicio.listarClientes().stream()
                 .filter(c -> c.getNombre().toLowerCase().contains(criterio)
                         || String.valueOf(c.getDni()).contains(criterio))
                 .toList();
 
-        FacesContext.getCurrentInstance().addMessage(null,
-                new FacesMessage("Se encontraron " + clientes.size() + " coincidencias"));
+        mostrarMensaje("Se encontraron " + clientes.size() + " coincidencias");
         PrimeFaces.current().ajax().update("forma-clientes:mensajes", "forma-clientes:clientes-tabla");
     }
 
+    private void mostrarMensaje(String mensaje) {
+        FacesContext.getCurrentInstance().addMessage(null,
+                new FacesMessage(FacesMessage.SEVERITY_INFO, mensaje, null));
+    }
 }
